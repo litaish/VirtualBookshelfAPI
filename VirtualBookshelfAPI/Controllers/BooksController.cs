@@ -29,15 +29,35 @@ namespace VirtualBookshelfAPI.Controllers
         [HttpGet]
         public async Task<ActionResult<List<BookDTO>>> Get()
         {
-            var books = await context.Books.ToListAsync();
+            try
+            {
+                var books = await context.Books.ToListAsync();
 
-            return mapper.Map<List<BookDTO>>(books); 
+                return mapper.Map<List<BookDTO>>(books);
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error retrieving books data from the database");
+            } 
         }
 
-        [HttpGet("{Id:int}")] // Expect a value at the end of an endpoint - api/books/3
-        public ActionResult<Book> Get(int id)
+        [HttpGet("{id:int}")] // Expect a value at the end of an endpoint - api/books/3
+        public async Task<ActionResult<BookDTO>> Get(int id)
         {
-            throw new NotImplementedException();
+            try
+            {
+                var book = await context.Books
+                    .Where(book => book.Id == id)
+                    .FirstOrDefaultAsync();
+
+                if (book == null) return NotFound();
+
+                return mapper.Map<BookDTO>(book);
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError);
+            }
         }
 
         [HttpPost]
