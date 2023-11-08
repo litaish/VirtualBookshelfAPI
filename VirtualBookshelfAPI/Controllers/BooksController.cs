@@ -64,26 +64,26 @@ namespace VirtualBookshelfAPI.Controllers
         public async Task<ActionResult> Post([FromBody] BookCreationDTO bookCreationDTO)
         {
             // Prevent duplicate values for Authors and Categories table when a new book is added
-            var authors = bookCreationDTO.Authors;
+            var authors = mapper.Map<List<Author>>(bookCreationDTO.Authors);
 
             foreach (var author in authors)
             {
-                var authorTransformed = mapper.Map<Author>(author);
-                context.Authors.AddIfNotExists<Author>(authorTransformed, a => a.Name == author.Name);
+                context.Authors.AddIfNotExists<Author>(author, a => a.Name == author.Name);
             }
 
-            var categories = bookCreationDTO.Categories;
+            var categories = mapper.Map<List<Category>>(bookCreationDTO.Categories);
 
             foreach (var category in categories)
             {
-                var categoryTransformed = mapper.Map<Category>(category);
-                context.Categories.AddIfNotExists<Category>(categoryTransformed, c => c.Name == category.Name);
+                context.Categories.AddIfNotExists<Category>(category, c => c.Name == category.Name);
             }
 
             await context.SaveChangesAsync();
 
-            var authorNames = authors.Select(a => a.Name.ToLower().Trim()).ToList();
-            var categoriesNames = categories.Select(c => c.Name.ToLower().Trim()).ToList();
+            var authorNames = authors
+                .Select(a => (a.Name ?? string.Empty).ToLower().Trim());
+            var categoriesNames = categories
+                .Select(c => (c.Name ?? string.Empty).ToLower().Trim());
 
             var book = new Book
             {
@@ -95,8 +95,12 @@ namespace VirtualBookshelfAPI.Controllers
                 Rating = bookCreationDTO.Rating,
                 Notes = bookCreationDTO.Notes,
                 Read = bookCreationDTO.Read,
-                Authors = context.Authors.Where(a => authorNames.Contains(a.Name.ToLower().Trim())).ToList(),
-                Categories = context.Categories.Where(c => categoriesNames.Contains(c.Name.ToLower().Trim())).ToList(),
+                Authors = context.Authors
+                .Where(a => authorNames
+                .Contains((a.Name ?? string.Empty).ToLower().Trim())).ToList(),
+                Categories = context.Categories
+                .Where(c => categoriesNames
+                .Contains((c.Name ?? string.Empty).ToLower().Trim())).ToList(),
             };
 
             context.Books.Add(book);
