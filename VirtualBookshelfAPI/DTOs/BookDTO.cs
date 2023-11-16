@@ -13,7 +13,7 @@ namespace VirtualBookshelfAPI.DTOs
         public int Rating { get; set; }
         public string? Notes { get; set; }
         public bool Read { get; set; }
-        public List<AuthorDTO> Authors { get; } = new();
-        public List<CategoryDTO> Categories { get; } = new();
+        public List<AuthorDTO> Authors { get; set; } = new();
+        public List<CategoryDTO> Categories { get; set; } = new(); 
     }
 }

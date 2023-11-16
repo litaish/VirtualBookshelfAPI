@@ -31,13 +31,17 @@ namespace VirtualBookshelfAPI.Controllers
         {
             try
             {
-                var books = await context.Books.ToListAsync();
+                var books = await context.Books
+                    .Include(b => b.Authors)
+                    .Include(b => b.Categories)
+                    .ToListAsync();
 
                 return mapper.Map<List<BookDTO>>(books);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, "Error retrieving books data from the database");
+                //return StatusCode(StatusCodes.Status500InternalServerError, "Error retrieving books data from the database");
+                return StatusCode(StatusCodes.Status500InternalServerError, ex.Message);
             } 
         }
 
@@ -47,8 +51,9 @@ namespace VirtualBookshelfAPI.Controllers
             try
             {
                 var book = await context.Books
-                    .Where(book => book.Id == id)
-                    .FirstOrDefaultAsync();
+                    .Include(b => b.Authors)
+                    .Include(b => b.Categories)
+                    .FirstOrDefaultAsync(book => book.Id == id);
 
                 if (book == null) return NotFound();
 
@@ -56,7 +61,7 @@ namespace VirtualBookshelfAPI.Controllers
             }
             catch (Exception)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError);
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Error retrieving book of Id {id} from the database");
             }
         }
 
@@ -80,11 +85,7 @@ namespace VirtualBookshelfAPI.Controllers
 
             await context.SaveChangesAsync();
 
-            var authorNames = authors
-                .Select(a => (a.Name ?? string.Empty).ToLower().Trim());
-            var categoriesNames = categories
-                .Select(c => (c.Name ?? string.Empty).ToLower().Trim());
-
+            // Todo: map through automapper, for authors and categories seperate queries for the mapped object
             var book = new Book
             {
                 ISBN10 = bookCreationDTO.ISBN10,
@@ -96,11 +97,16 @@ namespace VirtualBookshelfAPI.Controllers
                 Notes = bookCreationDTO.Notes,
                 Read = bookCreationDTO.Read,
                 Authors = context.Authors
-                .Where(a => authorNames
-                .Contains((a.Name ?? string.Empty).ToLower().Trim())).ToList(),
+                    // Select all authors which are also in the authors list (from POST body)
+                    .Where(a => authors
+                        .Select(a => (a.Name ?? string.Empty).ToLower())
+                        .Contains((a.Name ?? string.Empty).ToLower()))
+                    .ToList(),
                 Categories = context.Categories
-                .Where(c => categoriesNames
-                .Contains((c.Name ?? string.Empty).ToLower().Trim())).ToList(),
+                    .Where(c => categories
+                        .Select(c => (c.Name ?? string.Empty).ToLower())
+                        .Contains((c.Name ?? string.Empty).ToLower()))
+                    .ToList(),
             };
 
             context.Books.Add(book);
@@ -109,13 +115,13 @@ namespace VirtualBookshelfAPI.Controllers
             return NoContent();
         }
 
-        [HttpPut]
-        public ActionResult Put([FromBody] Book book)
+        [HttpPut("{id:int}")]
+        public ActionResult Put(int id, [FromBody] BookCreationDTO book)
         {
             throw new NotImplementedException();
         }
 
-        [HttpDelete]
+        [HttpDelete("{id:int}")]
         public ActionResult Delete()
         {
             throw new NotImplementedException();
