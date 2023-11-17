@@ -38,10 +38,9 @@ namespace VirtualBookshelfAPI.Controllers
 
                 return mapper.Map<List<BookDTO>>(books);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                //return StatusCode(StatusCodes.Status500InternalServerError, "Error retrieving books data from the database");
-                return StatusCode(StatusCodes.Status500InternalServerError, ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error retrieving books data from the database");
             } 
         }
 
@@ -68,57 +67,84 @@ namespace VirtualBookshelfAPI.Controllers
         [HttpPost]
         public async Task<ActionResult> Post([FromBody] BookCreationDTO bookCreationDTO)
         {
-            // Prevent duplicate values for Authors and Categories table when a new book is added
-            var authors = mapper.Map<List<Author>>(bookCreationDTO.Authors);
-
-            foreach (var author in authors)
+            try
             {
-                context.Authors.AddIfNotExists<Author>(author, a => a.Name == author.Name);
+                if (bookCreationDTO == null) return BadRequest();
+
+                // Prevent duplicate values for Authors and Categories table when a new book is added
+                var authors = mapper.Map<List<Author>>(bookCreationDTO.Authors);
+
+                foreach (var author in authors)
+                {
+                    context.Authors.AddIfNotExists<Author>(author, a => a.Name == author.Name);
+                }
+
+                var categories = mapper.Map<List<Category>>(bookCreationDTO.Categories);
+
+                foreach (var category in categories)
+                {
+                    context.Categories.AddIfNotExists<Category>(category, c => c.Name == category.Name);
+                }
+
+                await context.SaveChangesAsync();
+
+                var book = new Book
+                {
+                    ISBN10 = bookCreationDTO.ISBN10,
+                    ISBN13 = bookCreationDTO.ISBN13,
+                    Title = bookCreationDTO.Title,
+                    PageCount = bookCreationDTO.PageCount,
+                    ImgSrc = bookCreationDTO.ImgSrc,
+                    Rating = bookCreationDTO.Rating,
+                    Notes = bookCreationDTO.Notes,
+                    Read = bookCreationDTO.Read,
+                    Authors = context.Authors
+                        // Select all authors which are also in the authors list (from POST body)
+                        .Where(a => authors
+                            .Select(a => (a.Name ?? string.Empty).ToLower())
+                            .Contains((a.Name ?? string.Empty).ToLower()))
+                        .ToList(),
+                    Categories = context.Categories
+                        .Where(c => categories
+                            .Select(c => (c.Name ?? string.Empty).ToLower())
+                            .Contains((c.Name ?? string.Empty).ToLower()))
+                        .ToList(),
+                };
+
+                context.Books.Add(book);
+                await context.SaveChangesAsync();
+
+                return NoContent();
             }
-
-            var categories = mapper.Map<List<Category>>(bookCreationDTO.Categories);
-
-            foreach (var category in categories)
+            catch (Exception)
             {
-                context.Categories.AddIfNotExists<Category>(category, c => c.Name == category.Name);
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error creating new employee record");
             }
-
-            await context.SaveChangesAsync();
-
-            // Todo: map through automapper, for authors and categories seperate queries for the mapped object
-            var book = new Book
-            {
-                ISBN10 = bookCreationDTO.ISBN10,
-                ISBN13 = bookCreationDTO.ISBN13,
-                Title = bookCreationDTO.Title,
-                PageCount = bookCreationDTO.PageCount,
-                ImgSrc = bookCreationDTO.ImgSrc,
-                Rating = bookCreationDTO.Rating,
-                Notes = bookCreationDTO.Notes,
-                Read = bookCreationDTO.Read,
-                Authors = context.Authors
-                    // Select all authors which are also in the authors list (from POST body)
-                    .Where(a => authors
-                        .Select(a => (a.Name ?? string.Empty).ToLower())
-                        .Contains((a.Name ?? string.Empty).ToLower()))
-                    .ToList(),
-                Categories = context.Categories
-                    .Where(c => categories
-                        .Select(c => (c.Name ?? string.Empty).ToLower())
-                        .Contains((c.Name ?? string.Empty).ToLower()))
-                    .ToList(),
-            };
-
-            context.Books.Add(book);
-            await context.SaveChangesAsync();
-
-            return NoContent();
         }
 
         [HttpPut("{id:int}")]
-        public ActionResult Put(int id, [FromBody] BookCreationDTO book)
+        public async Task<ActionResult> Put(int id, [FromBody] BookEditingDTO bookEditingDTO)
         {
-            throw new NotImplementedException();
+            try
+            {
+                if (id != bookEditingDTO.Id) return BadRequest("Book ID mismatch");
+
+                var book = await context.Books
+                     .FirstOrDefaultAsync(b => b.Id == id);
+
+                if (book == null) return NotFound();
+
+                // Map the changes projected in the DTO
+                book = mapper.Map(bookEditingDTO, book);
+
+                await context.SaveChangesAsync();
+
+                return NoContent();
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error updating book data");
+            }               
         }
 
         [HttpDelete("{id:int}")]

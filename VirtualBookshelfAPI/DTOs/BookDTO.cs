@@ -5,6 +5,7 @@ namespace VirtualBookshelfAPI.DTOs
 {
     public class BookDTO
     {
+        public int Id { get; set; }
         public string? ISBN10 { get; set; }
         public string? ISBN13 { get; set; }
         public string? Title { get; set; }

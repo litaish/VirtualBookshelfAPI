@@ -8,6 +8,7 @@ namespace VirtualBookshelfAPI.Helpers
     {
         public AutoMapperProfiles()
         {
+            CreateMap<BookEditingDTO, Book>().ReverseMap();
             CreateMap<BookDTO, Book>();
             CreateMap<Book, BookDTO>()
                     .ForMember(dest => dest.Authors, opts => opts.MapFrom(src => src.Authors.Select(a => new AuthorDTO { Name = a.Name })))
