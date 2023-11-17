@@ -148,9 +148,25 @@ namespace VirtualBookshelfAPI.Controllers
         }
 
         [HttpDelete("{id:int}")]
-        public ActionResult Delete()
+        public async Task<ActionResult> Delete(int id)
         {
-            throw new NotImplementedException();
+            try
+            {
+                var exists = await context.Books.AnyAsync(b => b.Id == id);
+
+                if (!exists) return NotFound($"Book with ID = {id} not found");
+
+                // Create a new Book instance so that EF can mark record to delete
+                context.Remove(new Book() { Id = id });
+
+                await context.SaveChangesAsync();
+
+                return NoContent();
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error deleting book");
+            }
         }
     }
 }
